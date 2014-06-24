@@ -22,7 +22,7 @@ namespace MuMech
 		public float maxInc;
 		public ControllerState Status;
 		public float Coverage;
-//		private CelestialBody lastBody;
+		private CelestialBody lastBody;
 		public List<float> Orbits;
 		public string selectedResource;
 //		static FieldInfo fiSelRes;
@@ -77,34 +77,34 @@ namespace MuMech
 //			base.OnFixedUpdate();
 			if (HighLogic.LoadedScene != GameScenes.FLIGHT || KethaneData.Current == null) { return; }
 			
-//			if (lastBody != vessel.orbit.referenceBody) {
-//				lastBody = vessel.orbit.referenceBody;
-//				Orbits = new List<float>();
-//				float y = 1;
-//				while (y > 0)
-//				{
-//					var oP = 160f * (float)lastBody.rotationPeriod / y;
-//					var u3 = Math.Pow(lastBody.gravParameter, 1.0 / 3.0);
-//					float a = (float)((Math.Pow(oP, 2.0 / 3.0) * u3) / Math.Pow(Math.PI, 2.0 / 3.0));
-//					a -= (float)lastBody.Radius;
-//					var msg = string.Format("Orbit {0} is at {1:F3} km", y, a / 1000f);
-//					if (a > 0 && a < lastBody.sphereOfInfluence && (lastBody.atmosphere ? a > lastBody.RealMaxAtmosphereAltitude() : true))
-//					{
-//						msg += " added";
-//						Orbits.Add(a / 1000f);
-//					}
-////					Debug.Log(msg);
-//					y++;
-//					if (a <= 0) { break; }
-//				}
-//				Orbits.Sort();
-//				string str = "";
-//				foreach (var o in Orbits)
-//				{
-//					str += o.ToString("#.000") + " km\n";
-//				}
-//				System.IO.File.WriteAllText(KSPUtil.ApplicationRootPath + "\\KethaneScanOrbits_" + lastBody.name + ".txt", str);
-//			}	
+			if (lastBody != vessel.orbit.referenceBody) { // thanks to The_Duck, Technogeeky and ian for helping me fix the orbit calculation
+				lastBody = vessel.orbit.referenceBody;
+//				Debug.Log("GravParameter " + lastBody.gravParameter);
+				Orbits = new List<float>();
+				int y = 1;
+				var u3 = Math.Pow(lastBody.gravParameter, 1.0 / 3.0);
+				while (y > 0)
+				{
+					var oP = lastBody.rotationPeriod * (y / 80f);
+					var alt = u3 * Math.Pow(oP / (2 * Math.PI), 2.0 / 3.0) - lastBody.Radius;
+					var msg = string.Format("Orbit {0} is at {1:F1} km", y, alt / 1000f);
+					if (y % 2 != 0 && y % 5 != 0 && alt > 0 && alt < lastBody.sphereOfInfluence && (lastBody.atmosphere ? alt > lastBody.RealMaxAtmosphereAltitude() : true))
+					{
+						msg += " added";
+						Orbits.Add((float)alt / 1000f);
+//						Debug.Log(msg);
+					}
+					y++;
+					if (alt >= lastBody.sphereOfInfluence) { break; }
+				}
+				Orbits.Sort();
+				string str = "";
+				foreach (var o in Orbits)
+				{
+					str += o.ToString("#.0") + " km\n";
+				}
+				System.IO.File.WriteAllText(KSPUtil.ApplicationRootPath + "\\KethaneScanOrbits_" + lastBody.name + ".txt", str);
+			}
 			
 //			var scans = KethaneData.Current.Scans[(string)fiSelRes.GetValue(null)][vessel.mainBody.name];
 			var scans = KethaneData.Current.Scans[MapOverlay.SelectedResource][vessel.mainBody.name];
@@ -131,7 +131,7 @@ namespace MuMech
 						break;
 						
 					case ControllerState.Idle:
-						if (diff > IncChangeStep && myInc - IncChangeStep >= IncChangeLimit && vessel.patchedConicSolver.maneuverNodes.Count == 0) {
+						if (diff > IncChangeStep && curInc >= IncChangeLimit && vessel.patchedConicSolver.maneuverNodes.Count == 0) {
 							var planner = core.GetComputerModule<MechJebModuleManeuverPlanner>();
 							
 							double newInc;
